@@ -1,7 +1,7 @@
 [project]
 name = "CLI_AI_ASSISTANT"
 version = "0.1.0"
-description = "Add your description here"
+description = "Console AI assistant built with Pydantic AI: tools, persistent history, structured summary, Logfire tracing"
 readme = "README.md"
 authors = [
     { name = "dmzjb", email = "kubadomowicz2@wp.pl" }
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-week-8-project = "cli_ai_assistant.main:main"
+cli-ai-assistant = "cli_ai_assistant.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
