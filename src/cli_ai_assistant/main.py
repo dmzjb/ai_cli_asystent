@@ -1,11 +1,13 @@
 """Punkt wejścia CLI: pętla rozmowy, trwała historia, koszt sesji."""
 
 import logfire
-from pydantic_ai.exceptions import UsageLimitExceeded
+from pydantic_ai import ModelMessage
+from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_ai.usage import RunUsage, UsageLimits
 
-from cli_ai_assistant.agent import AsystentDeps, agent, settings
-from cli_ai_assistant.history import wczytaj_historie, zapisz_historie
+from cli_ai_assistant.agent import AsystentDeps, agent, settings, summary_agent
+from cli_ai_assistant.history import transkrypcja, wczytaj_historie, zapisz_historie
+from cli_ai_assistant.models import PodsumowanieRozmowy
 
 LIMIT_REQUESTOW_NA_TURE = 10
 
@@ -20,6 +22,32 @@ def pokaz_koszt(suma: RunUsage) -> None:
         print(f"koszt sesji do tej pory: ${suma.cost:.6f}")
 
 
+def pokaz_podsumowanie(podsumowanie: PodsumowanieRozmowy) -> None:
+    print("Podsumowanie rozmowy")
+    print("Tematy:")
+    for temat in podsumowanie.tematy or ["(brak)"]:
+        print(f"  - {temat}")
+    print("Otwarte sprawy:")
+    for sprawa in podsumowanie.otwarte_sprawy or ["(brak)"]:
+        print(f"  - {sprawa}")
+
+
+def podsumuj(historia: list[ModelMessage]) -> RunUsage | None:
+    """Wypisuje podsumowanie rozmowy. Zwraca zużycie lub None, gdy nie było czego podsumować
+    albo model nie dał poprawnego wyniku. Nie zmienia historii: to osobny przebieg."""
+    tekst = transkrypcja(historia)
+    if not tekst:
+        print("[Brak rozmowy do podsumowania]")
+        return None
+    try:
+        wynik = summary_agent.run_sync(tekst)
+    except UnexpectedModelBehavior as e:
+        print(f"[Nie udało się przygotować podsumowania: {e}]")
+        return None
+    pokaz_podsumowanie(wynik.output)
+    return wynik.usage
+
+
 def main() -> None:
     logfire.configure()
     logfire.instrument_pydantic_ai()
@@ -29,7 +57,7 @@ def main() -> None:
     suma = RunUsage()
     limity = UsageLimits(request_limit=LIMIT_REQUESTOW_NA_TURE)
 
-    print("Witaj w Asystencie CLI! Komendy: /cost, /exit")
+    print("Witaj w Asystencie CLI! Komendy: /cost, /exit, /podsumuj")
     print(f"Model: {settings.model}. Wiadomości w historii: {len(historia)}")
 
     try:
@@ -41,6 +69,11 @@ def main() -> None:
                 break
             if prompt == "/cost":
                 pokaz_koszt(suma)
+                continue
+            if prompt == "/podsumuj":
+                zuzycie = podsumuj(historia)
+                if zuzycie is not None:
+                    suma += zuzycie
                 continue
 
             try:
