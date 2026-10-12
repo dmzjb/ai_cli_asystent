@@ -1,10 +1,158 @@
 # CLI AI Assistant
 
+[English](#english) | [Polski](#polski)
+
+---
+
+## English
+
+A console AI assistant built with [Pydantic AI](https://ai.pydantic.dev). It chats in the terminal,
+picks among three tools on its own, remembers the conversation between runs, can summarize it as a
+structured object, and leaves a full trace of every run in Logfire.
+
+### Features
+
+- **Conversation memory stored on disk.** The history is saved to a JSON file after every turn, so
+  it survives a restart.
+- **Three tools** the model uses by itself (several at once in a single turn, if needed):
+  - `get_weather(city)`: weather for a city (**fake** data, a constant answer),
+  - `calculate(expression)`: a calculator built on the `ast` parser (`+ - * / ** %`, parentheses,
+    unary minus), no `eval()`, so the model cannot run arbitrary Python code,
+  - `save_note(note)`: appends a note to a text file.
+- **`/podsumuj`** (summarize): a separate agent returns the conversation summary as a Pydantic
+  object (topics and open issues) instead of free-form text.
+- **`/cost`**: tokens, number of requests and tool calls, and the session cost (when the provider
+  reports a price; OpenRouter does).
+- **Safeguards**: a limit of 10 model requests per turn, readable messages instead of tracebacks on
+  errors.
+- **Observability**: every run visible as a trace in [Logfire](https://logfire.pydantic.dev)
+  (prompts, tool calls, tokens, timings). Optional.
+
+### Stack
+
+Python 3.14, Pydantic AI, OpenRouter (Claude Haiku 4.5 by default), pydantic-settings, Logfire,
+pytest, [uv](https://docs.astral.sh/uv/).
+
+### Getting started
+
+[uv](https://docs.astral.sh/uv/) is required (it also manages the Python version).
+
+1. Install dependencies:
+   ```bash
+   uv sync
+   ```
+2. Create a `.env` file in the project root with your OpenRouter key (get one at
+   [openrouter.ai/keys](https://openrouter.ai/keys); `.env` is in `.gitignore`):
+   ```
+   OPENROUTER_API_KEY=your-key
+   ```
+3. Run:
+   ```bash
+   uv run cli-ai-assistant
+   ```
+
+#### Logfire (optional)
+
+Data is sent to Logfire **only when credentials are present**. Without them the assistant works
+normally: it asks no questions and sends nothing. To turn tracing on:
+
+```bash
+uv run logfire auth
+uv run logfire projects use PROJECT_NAME --org ORGANIZATION_NAME
+```
+
+The account needs an organization and a project (create them in the browser). The credentials are
+stored in the `.logfire/` directory (in `.gitignore`); alternatively set the `LOGFIRE_TOKEN`
+environment variable. To stop sending data, delete `.logfire/` or unset the token. Note that full
+prompts and tool results are sent to Logfire, including the conversation and note contents.
+
+### Configuration
+
+Environment variables or entries in `.env`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENROUTER_API_KEY` | none (required) | OpenRouter API key; missing or empty fails validation at startup |
+| `MODEL` | `anthropic/claude-haiku-4.5` | model name from the OpenRouter catalog |
+| `NOTES_FILE` | `data/notatki.txt` | file that `save_note` appends notes to |
+| `HISTORY_FILE` | `data/historia.json` | file with the conversation history |
+
+The `data/` directory is in `.gitignore`.
+
+### Chat commands
+
+| Command | What it does |
+|---|---|
+| `/podsumuj` | summarizes the conversation: topics and open issues (does not change the history) |
+| `/cost` | usage and cost of the current session |
+| `/exit` | quits (Ctrl+C or end of input also quit without an error) |
+
+Example: `what's the weather in Krakow and what is 17% of 3450?` triggers two tools in one turn.
+The assistant answers in Polish.
+
+### Architecture
+
+```
+src/cli_ai_assistant/
+├── config.py    settings (key, model, file paths) via pydantic-settings
+├── logic.py     tool logic without the framework: safe calculator, note writing
+├── agent.py     instructions, dependencies (deps), three tools, summary agent
+├── models.py    PodsumowanieRozmowy: the summary agent's result
+├── history.py   saving and loading the history (JSON), building the conversation transcript
+└── main.py      CLI loop, commands, limits, cost, Logfire
+tests/           tests for every module
+```
+
+### Design decisions
+
+- **Notes path via `deps`.** `AsystentDeps` carries the file path, so the `save_note` tool knows no
+  global location and tests write to a temporary directory.
+- **Tools from one turn run concurrently.** Two parallel writes to one file could corrupt each
+  other (on Windows, appending through separate handles is not atomic), so note writing is guarded
+  by a lock.
+- **Two kinds of tool errors.** A bad argument from the model (e.g. an invalid expression) ends in
+  `ModelRetry`, because the model can fix it. Errors the model cannot fix (division by zero, a disk
+  write error) go back to it as plain text, so it apologizes to the user and the program keeps
+  running.
+- **History vs. tools.** A persistent history makes the model inclined to answer from memory
+  instead of asking the tool again, so the instructions say to call tools anew on every request.
+- **Summary from a transcript, not from the history.** The summary agent has no tools, so it gets
+  only the text of questions and answers (no tool calls or results). Its result is not added to
+  the conversation history.
+- **Request limit per turn, not per session.** A turn with a tool takes at least two model requests
+  (the tool request and the answer after its result), hence the limit of 10.
+
+### Tests
+
+```bash
+uv run pytest
+```
+
+The tests need no API key and no network. The model is replaced with `FunctionModel` (hand-written
+scenarios) and `TestModel`, a dummy key is set before the imports, and real model calls are blocked
+(`ALLOW_MODEL_REQUESTS = False`). They cover: the tool logic (including rejection of unsafe
+expressions), tools inside the agent (retry, errors, several tools at once), saving and loading the
+history, the CLI loop (restart with history, limit, `/cost`, `/podsumuj`), and the configuration.
+
+### Known limitations
+
+- The weather is fake (a constant answer): a demonstration of a tool, not an API integration.
+- The calculator allows `**` with no limit on the exponent, so a very large power can keep the CPU
+  busy for a long time.
+- A corrupted history file stops the program at startup (it has to be deleted).
+- The whole history is sent to the model on every request, so the cost of later turns grows with
+  the length of the conversation (no trimming and no cost limit for a whole session). `/podsumuj`
+  sends the whole transcript.
+
+---
+
+## Polski
+
 Konsolowy asystent AI napisany w [Pydantic AI](https://ai.pydantic.dev). Rozmawia w terminalu,
 samodzielnie wybiera spośród trzech narzędzi, pamięta rozmowę między uruchomieniami, potrafi
 podsumować ją jako ustrukturyzowany obiekt i zostawia pełny ślad każdego przebiegu w Logfire.
 
-## Co potrafi
+### Co potrafi
 
 - **Rozmowa z pamięcią zapisywaną na dysku.** Historia ląduje w pliku JSON po każdej turze, więc
   przeżywa restart programu.
@@ -22,12 +170,12 @@ podsumować ją jako ustrukturyzowany obiekt i zostawia pełny ślad każdego pr
 - **Obserwowalność**: każdy przebieg widoczny jako trace w [Logfire](https://logfire.pydantic.dev)
   (prompty, wywołania narzędzi, tokeny, czasy). Opcjonalnie.
 
-## Stack
+### Stack
 
 Python 3.14, Pydantic AI, OpenRouter (domyślnie Claude Haiku 4.5), pydantic-settings, Logfire,
 pytest, [uv](https://docs.astral.sh/uv/).
 
-## Uruchomienie
+### Uruchomienie
 
 Wymagany [uv](https://docs.astral.sh/uv/) (zarządza też wersją Pythona).
 
@@ -40,37 +188,27 @@ Wymagany [uv](https://docs.astral.sh/uv/) (zarządza też wersją Pythona).
    ```
    OPENROUTER_API_KEY=twój-klucz
    ```
-3. Zdecyduj o Logfire (patrz niżej). Najprościej wyłączyć wysyłkę:
-
-   PowerShell:
-   ```powershell
-   $env:LOGFIRE_SEND_TO_LOGFIRE = "false"
-   ```
-   bash:
+3. Uruchom:
    ```bash
-   export LOGFIRE_SEND_TO_LOGFIRE=false
-   ```
-4. Uruchom:
-   ```bash
-   uv run week-8-project
+   uv run cli-ai-assistant
    ```
 
-### Logfire (opcjonalnie)
+#### Logfire (opcjonalnie)
 
-Program zawsze konfiguruje Logfire przy starcie. **Bez zmiennej `LOGFIRE_SEND_TO_LOGFIRE=false`
-przy pierwszym uruchomieniu zapyta o logowanie i wybór projektu.** Zmienna musi być w środowisku
-powłoki, a nie w `.env` (Logfire nie czyta tego pliku). Żeby włączyć śledzenie:
+Dane trafiają do Logfire **tylko wtedy, gdy są dane logowania**. Bez nich asystent działa normalnie:
+o nic nie pyta i niczego nie wysyła. Żeby włączyć śledzenie:
 
 ```bash
 uv run logfire auth
 uv run logfire projects use NAZWA_PROJEKTU --org NAZWA_ORGANIZACJI
 ```
 
-Konto musi mieć organizację i projekt (załóż je w przeglądarce). Dane logowania trafiają do
-katalogu `.logfire/`, który jest w `.gitignore`. Uwaga: do Logfire wysyłane są pełne prompty i wyniki
-narzędzi, czyli także treść rozmowy i notatek.
+Konto musi mieć organizację i projekt (załóż je w przeglądarce). Dane logowania trafiają do katalogu
+`.logfire/` (jest w `.gitignore`); można też ustawić zmienną środowiskową `LOGFIRE_TOKEN`. Żeby
+przestać wysyłać dane, usuń `.logfire/` albo odepnij token. Uwaga: do Logfire wysyłane są pełne
+prompty i wyniki narzędzi, czyli także treść rozmowy i notatek.
 
-## Konfiguracja
+### Konfiguracja
 
 Zmienne środowiskowe lub wpisy w `.env`:
 
@@ -83,7 +221,7 @@ Zmienne środowiskowe lub wpisy w `.env`:
 
 Katalog `data/` jest w `.gitignore`.
 
-## Komendy w czacie
+### Komendy w czacie
 
 | Komenda | Działanie |
 |---|---|
@@ -93,7 +231,7 @@ Katalog `data/` jest w `.gitignore`.
 
 Przykład: `jaka pogoda w Krakowie i ile to 17% z 3450?` wywoła dwa narzędzia w jednej turze.
 
-## Architektura
+### Architektura
 
 ```
 src/cli_ai_assistant/
@@ -106,7 +244,7 @@ src/cli_ai_assistant/
 tests/           testy każdego modułu
 ```
 
-## Decyzje projektowe
+### Decyzje projektowe
 
 - **Ścieżka do notatek przez `deps`.** `AsystentDeps` niesie ścieżkę pliku, więc narzędzie
   `save_note` nie zna globalnej lokalizacji, a testy zapisują do katalogu tymczasowego.
@@ -125,7 +263,7 @@ tests/           testy każdego modułu
 - **Limit requestów na turę, nie na sesję.** Tura z narzędziem to minimum dwa requesty do modelu
   (prośba o narzędzie i odpowiedź po jego wyniku), dlatego limit wynosi 10.
 
-## Testy
+### Testy
 
 ```bash
 uv run pytest
@@ -137,7 +275,7 @@ modelu są zablokowane (`ALLOW_MODEL_REQUESTS = False`). Pokrywają: logikę nar
 odrzucanie niebezpiecznych wyrażeń), narzędzia w agencie (retry, błędy, kilka narzędzi naraz),
 zapis i odczyt historii, pętlę CLI (restart z historią, limit, `/cost`, `/podsumuj`), konfigurację.
 
-## Znane ograniczenia
+### Znane ograniczenia
 
 - Pogoda jest fikcyjna (stała odpowiedź), to demonstracja narzędzia, a nie integracja z API.
 - Kalkulator dopuszcza `**` bez limitu wielkości wykładnika, więc bardzo duża potęga może zająć
