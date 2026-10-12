@@ -14,7 +14,6 @@ def bez_pliku_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
 
 
-
 def test_brak_klucza_api_konczy_sie_bledem_walidacji(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
@@ -29,7 +28,9 @@ def test_pusty_klucz_api_tez_jest_bledem(monkeypatch: pytest.MonkeyPatch):
         Settings()
 
 
-def test_klucz_api_jest_czytany_ze_zmiennej_srodowiskowej(monkeypatch: pytest.MonkeyPatch):
+def test_klucz_api_jest_czytany_ze_zmiennej_srodowiskowej(
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setenv("OPENROUTER_API_KEY", "moj-klucz")
 
     assert Settings().openrouter_api_key == "moj-klucz"

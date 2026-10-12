@@ -4,7 +4,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic_ai import Agent, RunContext, ModelRetry
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
@@ -67,15 +67,18 @@ model = OpenRouterModel(
     provider=OpenRouterProvider(api_key=settings.openrouter_api_key),
 )
 
+
 @dataclass
 class AsystentDeps:
     notes_file: Path
+
 
 agent = Agent(
     model,
     deps_type=AsystentDeps,
     instructions=INSTRUCTIONS,
 )
+
 
 @agent.tool_plain
 def get_weather(city: str) -> str:
@@ -99,6 +102,7 @@ def calculate(expression: str) -> str:
         ) from None
     return str(wynik)
 
+
 @agent.tool
 def save_note(ctx: RunContext[AsystentDeps], note: str) -> str:
     """Zapisuje notatkę użytkownika na stałe w pliku (dopisuje na końcu).
@@ -114,5 +118,9 @@ def save_note(ctx: RunContext[AsystentDeps], note: str) -> str:
         return f"Błąd zapisu notatki: {e}"
     return "Zapisano notatkę."
 
-summary_agent = Agent(model, output_type=PodsumowanieRozmowy, instructions="Streść rozmowę po polsku, nic nie dopisuj od siebie")
 
+summary_agent = Agent(
+    model,
+    output_type=PodsumowanieRozmowy,
+    instructions="Streść rozmowę po polsku, nic nie dopisuj od siebie",
+)

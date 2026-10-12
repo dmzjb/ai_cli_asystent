@@ -56,7 +56,9 @@ def test_agent_zapisuje_notatke_do_pliku_z_deps(tmp_path: Path):
     plik = tmp_path / "notatki.txt"
     deps = AsystentDeps(notes_file=plik)
 
-    with agent.override(model=FunctionModel(_model_wolajacy_save_note("Jutro lekarz o 15:00"))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy_save_note("Jutro lekarz o 15:00"))
+    ):
         wynik = agent.run_sync("zapisz, że jutro lekarz o 15:00", deps=deps)
 
     assert plik.read_text(encoding="utf-8") == "Jutro lekarz o 15:00\n"
@@ -70,7 +72,9 @@ def test_dwa_zapisy_w_jednej_turze_nie_gubia_notatek(tmp_path: Path):
     plik = tmp_path / "notatki.txt"
     deps = AsystentDeps(notes_file=plik)
 
-    with agent.override(model=FunctionModel(_model_wolajacy_save_note("pierwsza", "druga"))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy_save_note("pierwsza", "druga"))
+    ):
         agent.run_sync("zapisz dwie notatki", deps=deps)
 
     linie = plik.read_text(encoding="utf-8").splitlines()

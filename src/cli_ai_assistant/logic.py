@@ -10,11 +10,12 @@ allowed_operators: dict[type[ast.AST], Any] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
-    ast.Div: operator.truediv, #type:ignore
-    ast.Pow: operator.pow, #type:ignore
+    ast.Div: operator.truediv,  # type:ignore
+    ast.Pow: operator.pow,  # type:ignore
     ast.Mod: operator.mod,
-    ast.USub: operator.neg
+    ast.USub: operator.neg,
 }
+
 
 def safe_exec(wezel: ast.AST) -> float:
     if isinstance(wezel, ast.Expression):
@@ -38,6 +39,7 @@ def safe_exec(wezel: ast.AST) -> float:
 
 
 _zapis_notatki = threading.Lock()
+
 
 def save_note_function(plik: Path, note: str) -> None:
     """Przyjmuje sciezke oraz notatke jako parametr, zapisuje notatke w podanej lokalizacji.

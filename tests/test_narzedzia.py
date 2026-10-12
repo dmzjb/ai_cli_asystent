@@ -35,9 +35,13 @@ def _model_wolajacy(*wywolania: tuple[str, dict[str, Any]]):
         zwroty = [p for p in messages[-1].parts if isinstance(p, ToolReturnPart)]
         if zwroty:
             return ModelResponse(
-                parts=[TextPart("; ".join(f"{z.tool_name}={z.content}" for z in zwroty))]
+                parts=[
+                    TextPart("; ".join(f"{z.tool_name}={z.content}" for z in zwroty))
+                ]
             )
-        return ModelResponse(parts=[ToolCallPart(nazwa, args=args) for nazwa, args in wywolania])
+        return ModelResponse(
+            parts=[ToolCallPart(nazwa, args=args) for nazwa, args in wywolania]
+        )
 
     return model
 
@@ -93,7 +97,9 @@ def test_calculate_zle_wyrazenie_rzuca_modelretry(wyrazenie: str):
 
 
 def test_agent_zwraca_wynik_calculate(tmp_path: Path):
-    with agent.override(model=FunctionModel(_model_wolajacy(("calculate", {"expression": "2 + 2"})))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy(("calculate", {"expression": "2 + 2"})))
+    ):
         wynik = agent.run_sync("ile to 2+2", deps=_deps(tmp_path))
 
     assert wynik.output == "calculate=4"
@@ -110,8 +116,12 @@ def test_modelretry_naprawia_zle_wyrazenie(tmp_path: Path):
             return ModelResponse(parts=[TextPart(f"Wynik: {zwrot.content}")])
         if retry is not None:
             komunikaty.append(retry.model_response())
-            return ModelResponse(parts=[ToolCallPart("calculate", args={"expression": "2 + 2"})])
-        return ModelResponse(parts=[ToolCallPart("calculate", args={"expression": "2 +"})])
+            return ModelResponse(
+                parts=[ToolCallPart("calculate", args={"expression": "2 + 2"})]
+            )
+        return ModelResponse(
+            parts=[ToolCallPart("calculate", args={"expression": "2 +"})]
+        )
 
     with agent.override(model=FunctionModel(model)):
         wynik = agent.run_sync("policz", deps=_deps(tmp_path))
@@ -132,7 +142,9 @@ def test_uporczywie_zle_wyrazenie_wyczerpuje_retry(tmp_path: Path, wyrazenie: st
 
 
 def test_dzielenie_przez_zero_nie_wywala_runa_a_model_dostaje_tekst(tmp_path: Path):
-    with agent.override(model=FunctionModel(_model_wolajacy(("calculate", {"expression": "10 / 0"})))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy(("calculate", {"expression": "10 / 0"})))
+    ):
         wynik = agent.run_sync("ile to 10/0", deps=_deps(tmp_path))
 
     assert "dzielenie przez zero" in wynik.output
@@ -170,9 +182,13 @@ def test_testmodel_wola_narzedzia_z_deps_bez_bledu(tmp_path: Path):
 def test_blad_zapisu_notatki_nie_wywala_runa(tmp_path: Path):
     zablokowany = tmp_path / "to_jest_plik"
     zablokowany.write_text("x", encoding="utf-8")
-    deps = AsystentDeps(notes_file=zablokowany / "notatki.txt")  # katalog nadrzędny to zwykły plik
+    deps = AsystentDeps(
+        notes_file=zablokowany / "notatki.txt"
+    )  # katalog nadrzędny to zwykły plik
 
-    with agent.override(model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))
+    ):
         wynik = agent.run_sync("zapisz", deps=deps)
 
     assert "Błąd zapisu notatki" in wynik.output
@@ -186,7 +202,9 @@ def test_brak_uprawnien_do_zapisu_tez_trafia_do_modelu_jako_tekst(
 
     monkeypatch.setattr(agent_module, "save_note_function", odmowa)
 
-    with agent.override(model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))):
+    with agent.override(
+        model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))
+    ):
         wynik = agent.run_sync("zapisz", deps=_deps(tmp_path))
 
     assert "Błąd zapisu notatki: Brak uprawnień do zapisu" in wynik.output

@@ -36,14 +36,20 @@ def _rozmowa_z_narzedziem() -> list[ModelMessage]:
     ]
 
 
-def _model_zwracajacy(tematy: list[str], otwarte: list[str], widziane: list[list[ModelMessage]]):
+def _model_zwracajacy(
+    tematy: list[str], otwarte: list[str], widziane: list[list[ModelMessage]]
+):
     """FunctionModel, który zapisuje, co dostał, i zwraca poprawny obiekt wyniku."""
 
     def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         widziane.append(messages)
         wyjscie = info.output_tools[0].name
         return ModelResponse(
-            parts=[ToolCallPart(wyjscie, args={"tematy": tematy, "otwarte_sprawy": otwarte})]
+            parts=[
+                ToolCallPart(
+                    wyjscie, args={"tematy": tematy, "otwarte_sprawy": otwarte}
+                )
+            ]
         )
 
     return model
