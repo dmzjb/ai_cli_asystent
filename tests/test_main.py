@@ -151,6 +151,26 @@ def test_koniec_wejscia_i_ctrl_c_koncza_program_bez_tracebacku(
     assert "Do zobaczenia!" in capsys.readouterr().out
 
 
+# --- Logfire ---
+
+
+def test_logfire_wysyla_dane_tylko_gdy_sa_dane_logowania(
+    cli: Srodowisko, monkeypatch: pytest.MonkeyPatch
+):
+    # Bez tego ustawienia każdy, kto sklonuje repo, dostałby przy starcie interaktywne pytanie
+    # o logowanie do Logfire.
+    argumenty: dict[str, object] = {}
+
+    def configure(**kwargs: object) -> None:
+        argumenty.update(kwargs)
+
+    monkeypatch.setattr(main_module.logfire, "configure", configure)
+
+    cli.uruchom(monkeypatch, ["/exit"])
+
+    assert argumenty == {"send_to_logfire": "if-token-present"}
+
+
 # --- /cost ---
 
 

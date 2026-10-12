@@ -49,7 +49,9 @@ def podsumuj(historia: list[ModelMessage]) -> RunUsage | None:
 
 
 def main() -> None:
-    logfire.configure()
+    # Wysyłka do Logfire tylko, gdy są dane logowania (.logfire/ lub LOGFIRE_TOKEN). Bez nich
+    # program działa normalnie, bez pytań i bez wysyłania czegokolwiek.
+    logfire.configure(send_to_logfire="if-token-present")
     logfire.instrument_pydantic_ai()
 
     deps = AsystentDeps(notes_file=settings.notes_file)
