@@ -6,10 +6,17 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from cli_ai_assistant.agent import AsystentDeps, agent, settings, summary_agent
-from cli_ai_assistant.history import transkrypcja, wczytaj_historie, zapisz_historie
+from cli_ai_assistant.history import (
+    UszkodzonaHistoriaError,
+    odloz_uszkodzona_historie,
+    transkrypcja,
+    wczytaj_historie,
+    zapisz_historie,
+)
 from cli_ai_assistant.models import PodsumowanieRozmowy
 
 LIMIT_REQUESTOW_NA_TURE = 10
+
 
 def pokaz_koszt(suma: RunUsage) -> None:
     print(
@@ -55,7 +62,14 @@ def main() -> None:
     logfire.instrument_pydantic_ai()
 
     deps = AsystentDeps(notes_file=settings.notes_file)
-    historia = wczytaj_historie(settings.history_file)
+    try:
+        historia = wczytaj_historie(settings.history_file)
+    except UszkodzonaHistoriaError as e:
+        kopia = odloz_uszkodzona_historie(settings.history_file)
+        print(
+            f"[Plik historii jest uszkodzony ({e}). Zachowano go jako {kopia}. Zaczynam od zera.]"
+        )
+        historia = []
     suma = RunUsage()
     limity = UsageLimits(request_limit=LIMIT_REQUESTOW_NA_TURE)
 
@@ -91,7 +105,7 @@ def main() -> None:
             suma += wynik.usage
             historia += wynik.new_messages()
             zapisz_historie(settings.history_file, historia)
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         print("\nDo zobaczenia!")
 
 

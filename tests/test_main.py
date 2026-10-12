@@ -22,7 +22,9 @@ def _nic(*args: object, **kwargs: object) -> None:
 class Srodowisko:
     historia: Path
     notatki: Path
-    wywolania_modelu: list[int]  # liczba wiadomości, którą widział model przy każdym wywołaniu
+    wywolania_modelu: list[
+        int
+    ]  # liczba wiadomości, którą widział model przy każdym wywołaniu
 
     def uruchom(
         self,
@@ -57,9 +59,13 @@ class Srodowisko:
         prompt = next(p.content for p in ostatnie if isinstance(p, UserPromptPart))
         assert isinstance(prompt, str)
         if "pogoda" in prompt:
-            return ModelResponse(parts=[ToolCallPart("get_weather", {"city": "Kraków"})])
+            return ModelResponse(
+                parts=[ToolCallPart("get_weather", {"city": "Kraków"})]
+            )
         if "zapisz" in prompt:
-            return ModelResponse(parts=[ToolCallPart("save_note", {"note": "kupić mleko"})])
+            return ModelResponse(
+                parts=[ToolCallPart("save_note", {"note": "kupić mleko"})]
+            )
         return ModelResponse(parts=[TextPart(f"widzę {len(messages)} wiadomości")])
 
 
@@ -79,7 +85,11 @@ def cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Srodowisko:
 
 def test_pokaz_koszt_z_ceną(capsys: pytest.CaptureFixture[str]):
     suma = RunUsage(
-        input_tokens=100, output_tokens=20, requests=2, tool_calls=1, cost=Decimal("0.0015")
+        input_tokens=100,
+        output_tokens=20,
+        requests=2,
+        tool_calls=1,
+        cost=Decimal("0.0015"),
     )
 
     pokaz_koszt(suma)
@@ -120,6 +130,34 @@ def test_historia_przezywa_restart_i_trafia_do_modelu(
     assert "Wiadomości w historii: 2" in wydruk
     assert "Bot: widzę 3 wiadomości" in wydruk  # 2 z dysku + nowe pytanie
     assert len(wczytaj_historie(cli.historia)) == 4
+
+
+def test_uszkodzony_plik_historii_nie_zatrzymuje_startu_i_jest_zachowany(
+    cli: Srodowisko, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    cli.historia.write_text('[{"parts": [', encoding="utf-8")  # urwany JSON
+
+    cli.uruchom(monkeypatch, ["cześć", "/exit"])
+
+    wydruk = capsys.readouterr().out
+    assert "Plik historii jest uszkodzony" in wydruk
+    assert "Wiadomości w historii: 0" in wydruk
+    assert (
+        "Bot: widzę 1 wiadomości" in wydruk
+    )  # start od zera, bez śladu po uszkodzonym pliku
+    kopie = list(cli.historia.parent.glob("historia.json.uszkodzony-*"))
+    assert len(kopie) == 1
+    assert kopie[0].read_text(encoding="utf-8") == '[{"parts": ['
+    assert len(wczytaj_historie(cli.historia)) == 2  # nowa, poprawna historia
+
+
+def test_poprawny_plik_historii_nie_tworzy_kopii_uszkodzonej(
+    cli: Srodowisko, monkeypatch: pytest.MonkeyPatch
+):
+    cli.uruchom(monkeypatch, ["cześć", "/exit"])
+    cli.uruchom(monkeypatch, ["a teraz?", "/exit"])
+
+    assert list(cli.historia.parent.glob("historia.json.uszkodzony-*")) == []
 
 
 def test_pusty_input_jest_ignorowany_i_nie_wola_modelu(
@@ -263,4 +301,3 @@ def test_przerwana_tura_nie_trafia_do_kontekstu_kolejnych_pytan(
 
     # 2 wiadomości z pierwszej tury + nowe pytanie (nic z przerwanej tury)
     assert "Bot: widzę 3 wiadomości" in capsys.readouterr().out
-
