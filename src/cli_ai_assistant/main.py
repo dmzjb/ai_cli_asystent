@@ -4,12 +4,10 @@ import logfire
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.usage import RunUsage, UsageLimits
 
-from week_8_project.agent import AsystentDeps, agent, settings
-from week_8_project.history import wczytaj_historie, zapisz_historie
+from cli_ai_assistant.agent import AsystentDeps, agent, settings
+from cli_ai_assistant.history import wczytaj_historie, zapisz_historie
 
-# Tura z narzędziem to min. 2 requesty do modelu (prośba o narzędzie + odpowiedź), z retry więcej.
 LIMIT_REQUESTOW_NA_TURE = 10
-
 
 def pokaz_koszt(suma: RunUsage) -> None:
     print(

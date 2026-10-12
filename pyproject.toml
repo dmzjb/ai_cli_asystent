@@ -1,5 +1,5 @@
 [project]
-name = "week-8-project"
+name = "CLI_AI_ASSISTANT"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-week-8-project = "week_8_project.main:main"
+week-8-project = "cli_ai_assistant.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]

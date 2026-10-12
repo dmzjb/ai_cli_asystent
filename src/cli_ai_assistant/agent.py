@@ -8,8 +8,9 @@ from pydantic_ai import Agent, RunContext, ModelRetry
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
-from week_8_project.config import Settings
-from week_8_project.logic import safe_exec, save_note_function
+from cli_ai_assistant.config import Settings
+from cli_ai_assistant.logic import safe_exec, save_note_function
+from cli_ai_assistant.models import PodsumowanieRozmowy
 
 INSTRUCTIONS = """Jesteś inteligentnym asystentem CLI. Twoim zadaniem jest pomaganie użytkownikowi, odpowiadając krótko, zwięźle i zawsze w języku polskim.
 
@@ -104,3 +105,6 @@ def save_note(ctx: RunContext[AsystentDeps], note: str) -> str:
     notes_file = ctx.deps.notes_file
     save_note_function(notes_file, note)
     return "Zapisano notatkę."
+
+summary_agent = Agent(model, output_type=PodsumowanieRozmowy, instructions="Streść rozmowę po polsku, nic nie dopisuj od siebie")
+

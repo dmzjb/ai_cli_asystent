@@ -2,6 +2,7 @@
 
 import ast
 import operator
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -35,9 +36,16 @@ def safe_exec(wezel: ast.AST) -> float:
         return allowed_operators[typ_op](safe_exec(wezel.operand))
     raise ValueError(f"niedozwolony element wyrażenia: {type(wezel).__name__}")
 
-def save_note_function(plik: Path, note: str) -> None:
-    """Przyjmuje sciezke oraz notatke jako parametr, zapisuje notatke w podanej lokalizacji"""
-    plik.parent.mkdir(parents = True, exist_ok = True)
 
-    with plik.open("a", encoding="utf-8") as file:
-        file.write(note + "\n")
+_zapis_notatki = threading.Lock()
+
+def save_note_function(plik: Path, note: str) -> None:
+    """Przyjmuje sciezke oraz notatke jako parametr, zapisuje notatke w podanej lokalizacji.
+
+    Blokada jest potrzebna, bo framework wykonuje narzedzia z jednej tury wspolbieznie w watkach,
+    a na Windows dopisywanie przez osobne uchwyty nie jest atomowe (drugi zapis moze nadpisac pierwszy).
+    """
+    with _zapis_notatki:
+        plik.parent.mkdir(parents=True, exist_ok=True)
+        with plik.open("a", encoding="utf-8") as file:
+            file.write(note + "\n")
