@@ -101,9 +101,17 @@ def calculate(expression: str) -> str:
 
 @agent.tool
 def save_note(ctx: RunContext[AsystentDeps], note: str) -> str:
-    """Zapisuje notatkę użytkownika na stałe w pliku (dopisuje na końcu). Zwraca potwierdzenie."""
+    """Zapisuje notatkę użytkownika na stałe w pliku (dopisuje na końcu).
+
+    Zwraca potwierdzenie albo opis błędu, jeśli zapis się nie udał.
+    """
     notes_file = ctx.deps.notes_file
-    save_note_function(notes_file, note)
+    try:
+        save_note_function(notes_file, note)
+    except OSError as e:
+        # Błąd dysku lub uprawnień nie zależy od modelu, więc to nie jest ModelRetry. Zwracamy tekst,
+        # żeby model przeprosił użytkownika (tak każą instrukcje), a program działał dalej.
+        return f"Błąd zapisu notatki: {e}"
     return "Zapisano notatkę."
 
 summary_agent = Agent(model, output_type=PodsumowanieRozmowy, instructions="Streść rozmowę po polsku, nic nie dopisuj od siebie")

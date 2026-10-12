@@ -183,6 +183,25 @@ def test_save_note_zapisuje_do_pliku_z_ustawien(
     assert "Zapisano notatkę." in capsys.readouterr().out
 
 
+def test_blad_zapisu_notatki_nie_zamyka_programu_i_rozmowa_trwa(
+    cli: Srodowisko,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    zablokowany = tmp_path / "to_jest_plik"
+    zablokowany.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(settings, "notes_file", zablokowany / "notatki.txt")
+
+    cli.uruchom(monkeypatch, ["zapisz mleko", "cześć", "/exit"])
+
+    wydruk = capsys.readouterr().out
+    assert "Bot: Wynik: Błąd zapisu notatki" in wydruk
+    # Tura z narzędziem to 4 wiadomości (pytanie, wywołanie, wynik, odpowiedź) + nowe pytanie.
+    # To też dowód, że po błędzie zapisu rozmowa dalej działa i ma pełny kontekst.
+    assert "Bot: widzę 5 wiadomości" in wydruk
+
+
 # --- Limit requestów na turę ---
 
 

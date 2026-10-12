@@ -14,6 +14,7 @@ from pydantic_ai.messages import RetryPromptPart, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
+import cli_ai_assistant.agent as agent_module
 from cli_ai_assistant.agent import (
     INSTRUCTIONS,
     AsystentDeps,
@@ -163,14 +164,9 @@ def test_testmodel_wola_narzedzia_z_deps_bez_bledu(tmp_path: Path):
     assert len(deps.notes_file.read_text(encoding="utf-8").splitlines()) == 1
 
 
-# --- Znana luka: błąd zapisu notatki wywala cały run (patrz raport) ---
+# --- Błąd zapisu notatki: model dostaje tekst, run się nie przerywa ---
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=OSError,
-    reason="save_note nie obsługuje OSError: błąd dysku przerywa run zamiast trafić do modelu jako tekst",
-)
 def test_blad_zapisu_notatki_nie_wywala_runa(tmp_path: Path):
     zablokowany = tmp_path / "to_jest_plik"
     zablokowany.write_text("x", encoding="utf-8")
@@ -179,4 +175,18 @@ def test_blad_zapisu_notatki_nie_wywala_runa(tmp_path: Path):
     with agent.override(model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))):
         wynik = agent.run_sync("zapisz", deps=deps)
 
-    assert "Błąd" in wynik.output
+    assert "Błąd zapisu notatki" in wynik.output
+
+
+def test_brak_uprawnien_do_zapisu_tez_trafia_do_modelu_jako_tekst(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def odmowa(plik: Path, note: str) -> None:
+        raise PermissionError("Brak uprawnień do zapisu")
+
+    monkeypatch.setattr(agent_module, "save_note_function", odmowa)
+
+    with agent.override(model=FunctionModel(_model_wolajacy(("save_note", {"note": "x"})))):
+        wynik = agent.run_sync("zapisz", deps=_deps(tmp_path))
+
+    assert "Błąd zapisu notatki: Brak uprawnień do zapisu" in wynik.output
