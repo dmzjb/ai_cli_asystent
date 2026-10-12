@@ -121,6 +121,10 @@ tests/           tests for every module
   the conversation history.
 - **Request limit per turn, not per session.** A turn with a tool takes at least two model requests
   (the tool request and the answer after its result), hence the limit of 10.
+- **A corrupted history file does not stop the program.** If the file is empty, truncated, not
+  JSON, not a list of messages or not valid UTF-8, the assistant moves it aside as
+  `historia.json.uszkodzony-<date>` (nothing is deleted, so you can still recover data by hand),
+  warns you and starts with an empty history.
 
 ### Tests
 
@@ -139,7 +143,6 @@ history, the CLI loop (restart with history, limit, `/cost`, `/podsumuj`), and t
 - The weather is fake (a constant answer): a demonstration of a tool, not an API integration.
 - The calculator allows `**` with no limit on the exponent, so a very large power can keep the CPU
   busy for a long time.
-- A corrupted history file stops the program at startup (it has to be deleted).
 - The whole history is sent to the model on every request, so the cost of later turns grows with
   the length of the conversation (no trimming and no cost limit for a whole session). `/podsumuj`
   sends the whole transcript.
@@ -262,6 +265,10 @@ tests/           testy każdego modułu
   trafia do historii rozmowy.
 - **Limit requestów na turę, nie na sesję.** Tura z narzędziem to minimum dwa requesty do modelu
   (prośba o narzędzie i odpowiedź po jego wyniku), dlatego limit wynosi 10.
+- **Uszkodzony plik historii nie zatrzymuje programu.** Jeśli plik jest pusty, urwany, nie jest
+  JSON-em, nie jest listą wiadomości albo nie jest poprawnym UTF-8, asystent odkłada go jako
+  `historia.json.uszkodzony-<data>` (nic nie jest kasowane, więc dane można jeszcze odzyskać
+  ręcznie), uprzedza o tym i zaczyna z pustą historią.
 
 ### Testy
 
@@ -280,7 +287,6 @@ zapis i odczyt historii, pętlę CLI (restart z historią, limit, `/cost`, `/pod
 - Pogoda jest fikcyjna (stała odpowiedź), to demonstracja narzędzia, a nie integracja z API.
 - Kalkulator dopuszcza `**` bez limitu wielkości wykładnika, więc bardzo duża potęga może zająć
   procesor na długo.
-- Uszkodzony plik historii zatrzymuje start programu (trzeba go usunąć).
 - Cała historia jest wysyłana do modelu przy każdym żądaniu, więc koszt kolejnych tur rośnie
   z długością rozmowy (brak przycinania i limitu kosztu na całą sesję). `/podsumuj` wysyła całą
   transkrypcję.
